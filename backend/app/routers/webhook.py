@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Form, Request, Response
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.database import get_db
 from app.services.twilio_whatsapp_service import twilio_whatsapp_service
 from app.services.ai_service import ai_case_worker
@@ -52,7 +53,7 @@ async def handle_twilio_webhook(
         reply_text = ai_res.get("reply", "")
 
         # Append Public Website Link so citizens can open the React Web UI on ngrok
-        web_url = settings.PUBLIC_WEBSITE_URL or "http://localhost:5173"
+        web_url = getattr(settings, "PUBLIC_WEBSITE_URL", "https://ceroplastic-evaluative-emeline.ngrok-free.dev")
         website_callout = f"\n\n🌐 For full interactive portal, reminders & web chat, visit:\n{web_url}"
         if web_url not in reply_text:
             reply_text += website_callout
@@ -67,7 +68,7 @@ async def handle_twilio_webhook(
         return Response(content=twiml_content.encode("utf-8"), media_type="application/xml; charset=utf-8", status_code=200)
 
     except Exception as err:
-        logger.error(f"[Twilio Webhook Error] Error processing message: {err}")
+        logger.error(f"[Twilio Webhook Error] Error processing message: {err}", exc_info=True)
         err_msg = "Namaste! JanSathi AI system is currently processing your request. Please try again shortly."
         escaped_err = escape(err_msg)
         twiml_content = f"<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response><Message>{escaped_err}</Message></Response>"
