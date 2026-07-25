@@ -4,7 +4,7 @@
 
 @layer base {
   body {
-    @apply bg-[#f4f6f9] text-slate-800 font-sans;
+    @apply bg-[#f4f6f9] text-slate-800 font-sans antialiased selection:bg-gov-saffron-100 selection:text-gov-saffron-700;
   }
 }
 
@@ -21,4 +21,20 @@
 /* Glass & Card subtle utilities */
 .gov-card {
   @apply bg-white border border-slate-200/80 rounded-xl shadow-sm hover:shadow-md transition-all duration-200;
+}
+
+/* Smooth Page Transitions */
+.page-fade-in {
+  animation: fadeIn 0.25s ease-in-out forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
