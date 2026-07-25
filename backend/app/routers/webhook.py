@@ -9,6 +9,8 @@ from app.database import get_db
 from app.services.twilio_whatsapp_service import twilio_whatsapp_service
 from app.services.ai_service import ai_case_worker
 
+from app.services.sarvam_service import sarvam_client
+
 logger = logging.getLogger("jansathi.twilio_webhook")
 
 router = APIRouter(tags=["Twilio WhatsApp Webhook"])
@@ -21,24 +23,42 @@ async def handle_twilio_webhook(
     From: str = Form(None),
     Body: str = Form(None),
     MessageSid: str = Form(None),
+    NumMedia: str = Form(None),
+    MediaUrl0: str = Form(None),
+    MediaContentType0: str = Form(None),
     db: Session = Depends(get_db)
 ):
     """
-    POST /webhook endpoint receiving incoming WhatsApp messages from Twilio Sandbox.
-    Returns direct TwiML XML response to ensure instant WhatsApp delivery.
+    POST /webhook endpoint receiving incoming WhatsApp text & voice messages from Twilio Sandbox.
+    Automatically transcribes voice notes via Sarvam AI Speech-to-Text (Saaras v3).
     """
-    # If parameters were not injected by Form parser, parse request form data manually
-    if not From or not Body:
-        try:
-            form_data = await request.form()
-            From = From or form_data.get("From")
-            Body = Body or form_data.get("Body")
-            MessageSid = MessageSid or form_data.get("MessageSid")
-        except Exception:
-            pass
+    media_url = MediaUrl0
+    media_type = MediaContentType0
+
+    # Parse request form data if not automatically injected
+    try:
+        form_data = await request.form()
+        From = From or form_data.get("From")
+        Body = Body or form_data.get("Body")
+        MessageSid = MessageSid or form_data.get("MessageSid")
+        media_url = media_url or form_data.get("MediaUrl0")
+        media_type = media_type or form_data.get("MediaContentType0")
+    except Exception:
+        pass
 
     sender_phone = From or ""
     message_text = (Body or "").strip()
+
+    # Voice Note Handling: If an audio file URL is received from WhatsApp
+    if media_url or (media_type and media_type.startswith("audio/")):
+        logger.info(f"[Twilio Inbound Voice] Voice note received from {sender_phone}: {media_url}")
+        transcribed_text = sarvam_client.transcribe_audio_url(media_url) if media_url else None
+        if transcribed_text:
+            logger.info(f"[Twilio Inbound Voice] Transcribed: '{transcribed_text}'")
+            message_text = transcribed_text
+        else:
+            if not message_text:
+                message_text = "voice note inquiry for government scheme"
 
     if not sender_phone or not message_text:
         logger.warning("[Twilio Webhook] Received empty or invalid payload.")

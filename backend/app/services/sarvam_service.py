@@ -100,6 +100,59 @@ class SarvamAIService:
             logger.error(f"[SARVAM AI Error] Unexpected error during request: {err}")
             return None
 
+    def transcribe_audio_url(self, audio_url: str) -> Optional[str]:
+        """
+        Download voice note audio from URL and transcribe via Sarvam AI Speech-to-Text (Saaras v3).
+        """
+        if not self.is_configured() or not audio_url:
+            return None
+
+        try:
+            # Download audio file from Twilio / public media URL
+            req = urllib.request.Request(audio_url, headers={"User-Agent": "JanSathiAI/1.0"})
+            with urllib.request.urlopen(req, timeout=12.0) as resp:
+                audio_bytes = resp.read()
+
+            if not audio_bytes:
+                return None
+
+            # Execute multipart/form-data request to Sarvam Speech-to-Text
+            url = f"{self.base_url}/speech-to-text"
+            boundary = "----JanSathiFormBoundaryVoiceSTT"
+            
+            body = []
+            body.append(f"--{boundary}\r\n".encode('utf-8'))
+            body.append(b'Content-Disposition: form-data; name="model"\r\n\r\n')
+            body.append(b'saaras:v3\r\n')
+            body.append(f"--{boundary}\r\n".encode('utf-8'))
+            body.append(b'Content-Disposition: form-data; name="file"; filename="voice.ogg"\r\nContent-Type: audio/ogg\r\n\r\n')
+            body.append(audio_bytes)
+            body.append(b'\r\n')
+            body.append(f"--{boundary}--\r\n".encode('utf-8'))
+            
+            payload = b"".join(body)
+            active_key = self.api_key.strip()
+            headers = {
+                "Content-Type": f"multipart/form-data; boundary={boundary}",
+                "api-subscription-key": active_key,
+                "Authorization": f"Bearer {active_key}"
+            }
+
+            stt_req = urllib.request.Request(url, data=payload, headers=headers, method="POST")
+            with urllib.request.urlopen(stt_req, timeout=15.0) as stt_resp:
+                if stt_resp.status == 200:
+                    result_json = json.loads(stt_resp.read().decode('utf-8'))
+                    transcript = result_json.get("transcript") or result_json.get("text", "")
+                    if transcript:
+                        logger.info(f"[Sarvam STT] Successfully transcribed voice note: '{transcript}'")
+                        return transcript.strip()
+
+        except Exception as err:
+            logger.warning(f"[Sarvam STT Warning] Voice note transcription notice: {err}")
+            return None
+
+        return None
+
 
 # Singleton Sarvam AI Service instance
 sarvam_client = SarvamAIService()
