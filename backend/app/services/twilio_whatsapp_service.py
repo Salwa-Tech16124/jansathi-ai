@@ -93,6 +93,7 @@ class TwilioWhatsAppService:
     def send_text_message(self, to_number: str, text: str) -> bool:
         """
         Send a text response to a WhatsApp user via Twilio API.
+        Automatically chunks messages exceeding 1400 characters to comply with Twilio's 1600 char limit.
         """
         client = self._get_client()
         if not client:
@@ -102,18 +103,28 @@ class TwilioWhatsAppService:
             return False
 
         recipient = self.format_whatsapp_number(to_number)
+        
+        # Twilio WhatsApp limits messages to 1600 chars max. Chunk safely at 1400 chars.
+        MAX_LEN = 1400
+        if len(text) <= MAX_LEN:
+            chunks = [text]
+        else:
+            chunks = [text[i:i + MAX_LEN] for i in range(0, len(text), MAX_LEN)]
 
-        try:
-            message = client.messages.create(
-                from_=self.from_number,
-                to=recipient,
-                body=text
-            )
-            logger.info(f"[Twilio Service] Message dispatched successfully to {recipient}. SID: {message.sid}")
-            return True
-        except Exception as err:
-            logger.error(f"[Twilio Service Error] Failed to send WhatsApp message to {recipient}: {err}")
-            return False
+        success = True
+        for idx, chunk in enumerate(chunks):
+            try:
+                message = client.messages.create(
+                    from_=self.from_number,
+                    to=recipient,
+                    body=chunk
+                )
+                logger.info(f"[Twilio Service] Chunk {idx+1}/{len(chunks)} dispatched to {recipient}. SID: {message.sid}")
+            except Exception as err:
+                logger.error(f"[Twilio Service Error] Failed to send chunk {idx+1} to {recipient}: {err}")
+                success = False
+
+        return success
 
     def send_interactive_reply(
         self,
