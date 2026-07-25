@@ -83,11 +83,14 @@ async def handle_twilio_webhook(
         if web_url not in reply_text:
             reply_text += website_callout
 
-        # Also dispatch via REST API if configured
+        # Also attempt dispatch via REST API if configured (catch REST API 429 quota limits gracefully)
         if twilio_whatsapp_service.is_configured():
-            twilio_whatsapp_service.send_text_message(sender_phone, reply_text)
+            try:
+                twilio_whatsapp_service.send_text_message(sender_phone, reply_text)
+            except Exception as rest_err:
+                logger.warning(f"[Twilio REST API Notice] REST API dispatch limit notice: {rest_err}")
 
-        # Return TwiML XML with <Message> body for instant Twilio reply delivery
+        # Return direct TwiML XML with <Message> body for instant WhatsApp delivery (unaffected by REST API daily limit)
         escaped_reply = escape(reply_text)
         twiml_content = f"<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response><Message>{escaped_reply}</Message></Response>"
         return Response(content=twiml_content.encode("utf-8"), media_type="application/xml; charset=utf-8", status_code=200)
