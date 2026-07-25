@@ -93,14 +93,14 @@ async def handle_twilio_webhook(
         # Return direct TwiML XML with <Message> body for instant WhatsApp delivery (unaffected by REST API daily limit)
         escaped_reply = escape(reply_text)
         twiml_content = f"<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response><Message>{escaped_reply}</Message></Response>"
-        return Response(content=twiml_content.encode("utf-8"), media_type="application/xml; charset=utf-8", status_code=200)
+        return Response(content=twiml_content.encode("utf-8"), media_type="text/xml", status_code=200)
 
     except Exception as err:
         logger.error(f"[Twilio Webhook Error] Error processing message: {err}", exc_info=True)
         err_msg = "Namaste! JanSathi AI system is currently processing your request. Please try again shortly."
         escaped_err = escape(err_msg)
         twiml_content = f"<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response><Message>{escaped_err}</Message></Response>"
-        return Response(content=twiml_content.encode("utf-8"), media_type="application/xml; charset=utf-8", status_code=200)
+        return Response(content=twiml_content.encode("utf-8"), media_type="text/xml", status_code=200)
 
 
 @router.get("/webhook")
