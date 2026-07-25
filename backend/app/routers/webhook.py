@@ -90,9 +90,21 @@ async def handle_twilio_webhook(
             except Exception as rest_err:
                 logger.warning(f"[Twilio REST API Notice] REST API dispatch limit notice: {rest_err}")
 
-        # Remove raw markdown double-asterisks for clean WhatsApp rendering
-        clean_reply = reply_text.replace("**", "")
-        escaped_reply = escape(clean_reply)
+        # Sanitize emojis and markdown for 100% reliable Twilio WhatsApp TwiML XML parsing
+        twiml_reply = (
+            reply_text
+            .replace("**", "")
+            .replace("⭐", ">> ")
+            .replace("📌", "• Why: ")
+            .replace("💰", "• Benefits: ")
+            .replace("📄", "• Docs: ")
+            .replace("📝", "• Apply: ")
+            .replace("🔗", "• Link: ")
+            .replace("🟢", "• Match: ")
+            .replace("📍", "\n[NEXT STEPS]\n")
+            .replace("🌐", "\n[WEBSITE PORTAL]\n")
+        )
+        escaped_reply = escape(twiml_reply)
 
         # Return direct TwiML XML with <Message> body for instant WhatsApp delivery
         twiml_content = f"<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response><Message>{escaped_reply}</Message></Response>"
