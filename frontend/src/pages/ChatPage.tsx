@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { 
   Send, 
   Bot, 
@@ -28,6 +29,7 @@ interface ChatMessage {
 }
 
 export const ChatPage: React.FC = () => {
+  const location = useLocation();
   const [inputMessage, setInputMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [reminderCreatedIds, setReminderCreatedIds] = useState<number[]>([]);
@@ -37,7 +39,7 @@ export const ChatPage: React.FC = () => {
     {
       id: '1',
       sender: 'assistant',
-      text: 'Namaste! I am JanSathi AI, your public assistance case worker.\n\nTell me about your age, occupation, gender, state, district, or income, and what assistance you are seeking (Scholarships, Agriculture, Women Welfare, Senior Citizens, or Health Insurance).',
+      text: 'Namaste! I am JanSathi AI, your public assistance case worker.\n\nI can help citizens across 10 categories: Students 🎓, Farmers 👨‍🌾, Women 👩, Senior Citizens 👴, Health 🏥, Housing 🏠, Employment 💼, Business 🏭, Disability ♿, and Child Welfare 👶.\n\nHow may I assist you today?',
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     },
   ]);
@@ -45,11 +47,23 @@ export const ChatPage: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // 15 Realistic Demo Prompts covering all 10 citizen categories
   const sampleQueries = [
-    'I am a 65 year old farmer from Punjab seeking pension and crop support',
-    'Class 10 female student looking for scholarship guidance',
-    'Tell me about Ayushman Bharat health insurance for low-income families',
-    'What welfare schemes exist for female entrepreneurs and Lakhpati Didi?',
+    '🎓 I am a Class 12 student passed with 85% seeking merit scholarship',
+    '👨‍🌾 I cultivate wheat on 3 acres of land in Punjab and need crop support',
+    '👴 I am 70 years old seeking senior citizen old age pension',
+    '👩 I want to start a tailoring business under Lakhpati Didi scheme',
+    '🏥 My family needs medical treatment and hospital coverage',
+    '♿ I have a 60% disability certificate and seek financial aid',
+    '🏭 I want to open a grocery shop under PM MUDRA loan',
+    '💼 I am an unemployed youth seeking skill training under PMKVY',
+    '🏠 I need financial help to construct a house under PMAY',
+    '👶 Looking for orphan child protection and nutrition support',
+    '🎓 Female student in Class 9 seeking NMMSS scholarship',
+    '👨‍🌾 Crop damage due to unseasonal rains seeking insurance claim',
+    '👩 Pregnant mother looking for PMMVY maternity benefits',
+    '♿ Need assistance for wheelchair and hearing aid for senior citizen',
+    '💼 Artisan carpenter seeking PM-Vishwakarma toolkit credit',
   ];
 
   const scrollToBottom = () => {
@@ -59,6 +73,14 @@ export const ChatPage: React.FC = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages, isTyping]);
+
+  // Handle passed query from Landing Page
+  useEffect(() => {
+    const initialQuery = (location.state as any)?.initialQuery;
+    if (initialQuery) {
+      handleSendMessage(initialQuery);
+    }
+  }, [location.state]);
 
   const handleSendMessage = async (messageText: string) => {
     if (!messageText.trim() || isTyping) return;
@@ -179,11 +201,11 @@ export const ChatPage: React.FC = () => {
           <div>
             <h1 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
               JanSathi AI Case Worker
-              <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-semibold border border-emerald-200">
-                ACTIVE
+              <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full font-semibold border border-emerald-200">
+                10 CITIZEN GROUPS
               </span>
             </h1>
-            <p className="text-xs text-slate-500">Public Service Matching • Sarvam AI & Database Grounded</p>
+            <p className="text-xs text-slate-500">Categorized Public Service Matching • Sarvam AI Grounded</p>
           </div>
         </div>
 
@@ -251,23 +273,23 @@ export const ChatPage: React.FC = () => {
                   </span>
                 </div>
 
-                {/* Missing Fields Prompt Callout */}
+                {/* Missing Fields Callout */}
                 {msg.missingFields && msg.missingFields.length > 0 && (
                   <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl flex items-start space-x-2 text-xs text-amber-900">
                     <HelpCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                     <div>
-                      <span className="font-bold">Helpful Tip:</span> Providing your{' '}
-                      <span className="font-semibold">{msg.missingFields.join(', ')}</span> will help us locate exact eligible schemes for you!
+                      <span className="font-bold">Follow-up Info Needed:</span> Providing your{' '}
+                      <span className="font-semibold">{msg.missingFields.join(', ')}</span> will help narrow down exact eligible schemes!
                     </div>
                   </div>
                 )}
 
-                {/* Enhanced AI Scheme Cards */}
+                {/* AI Scheme Cards */}
                 {msg.matchedSchemes && msg.matchedSchemes.length > 0 && (
                   <div className="space-y-3 pt-2">
                     <div className="flex items-center space-x-1.5 text-xs font-bold text-gov-navy-900">
                       <Sparkles className="w-4 h-4 text-gov-saffron-500 animate-pulse" />
-                      <span>Eligible Public Schemes ({msg.matchedSchemes.length})</span>
+                      <span>Matched Government Schemes ({msg.matchedSchemes.length})</span>
                     </div>
 
                     <div className="grid grid-cols-1 gap-3">
@@ -362,7 +384,7 @@ export const ChatPage: React.FC = () => {
                   <span className="w-1.5 h-1.5 rounded-full bg-gov-saffron-600" />
                   <span className="w-1.5 h-1.5 rounded-full bg-gov-saffron-700" />
                 </div>
-                <span className="font-medium text-slate-500">JanSathi AI case worker is evaluating government scheme database...</span>
+                <span className="font-medium text-slate-500">JanSathi AI case worker is evaluating 30+ government schemes...</span>
               </div>
             </div>
           )}
@@ -370,11 +392,11 @@ export const ChatPage: React.FC = () => {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Quick Suggestion Pills */}
-        <div className="px-4 py-2.5 bg-white border-t border-slate-100">
-          <div className="flex items-center space-x-1.5 text-[11px] font-medium text-slate-500 mb-2">
+        {/* 15 Demo Suggestion Pills */}
+        <div className="px-4 py-2 bg-white border-t border-slate-100">
+          <div className="flex items-center space-x-1.5 text-[11px] font-medium text-slate-500 mb-1.5">
             <Sparkles className="w-3.5 h-3.5 text-gov-saffron-500" />
-            <span>Hackathon Quick Demo Prompts:</span>
+            <span>15 Demo Conversations (Select Any Citizen Group):</span>
           </div>
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
             {sampleQueries.map((query, idx) => (
@@ -398,7 +420,7 @@ export const ChatPage: React.FC = () => {
             disabled={isTyping}
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
-            placeholder="Type your details (e.g., 'I am a 60 year old farmer from MP seeking pension')..."
+            placeholder="Type your details (e.g. 'I am a 60 year old farmer from UP needing pension')..."
             className="flex-1 px-4 py-3 text-xs sm:text-sm bg-gov-ash border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gov-saffron-500 text-slate-800 placeholder-slate-400 disabled:opacity-60"
           />
           <button
