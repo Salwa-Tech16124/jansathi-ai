@@ -41,6 +41,17 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    # Root API Welcome Endpoint
+    @app.get("/", tags=["Root"])
+    def root():
+        return {
+            "name": settings.PROJECT_NAME,
+            "version": settings.VERSION,
+            "status": "online",
+            "documentation": "/docs",
+            "health_check": "/health"
+        }
+
     # Core API Routers
     app.include_router(health.router, prefix=settings.API_PREFIX)
     app.include_router(citizens.router, prefix=f"{settings.API_PREFIX}/api")
