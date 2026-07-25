@@ -159,65 +159,59 @@ class GeminiRAGService:
             except Exception as err:
                 logger.error(f"[Gemini RAG] API generation error: {err}")
 
-        # Fallback grounded Case Worker synthesis if API key fails or unavailable
+        # Fallback grounded Case Worker synthesis if API key fails, times out, or hits 429 rate limit
         if lang == "hi":
             reply_lines = [
                 "नमस्ते! आपके AI सरकारी केस वर्कर के रूप में, यहाँ आपकी प्रोफाइल से मेल खाने वाली शीर्ष सरकारी योजनाएं हैं:\n"
             ]
-            for s in formatted_schemes[:3]:
+            for s in formatted_schemes[:2]:
                 reply_lines.append(f"⭐ **{s['scheme_name']}** ({s['category']})")
-                reply_lines.append(f"📌 **यह योजना आपके लिए क्यों उपयुक्त है**: आपके प्रोफाइल के अनुसार {s['category']} कल्याण के तहत पात्र।")
+                reply_lines.append(f"📌 **यह योजना क्यों**: {s['category']} कल्याण के तहत पात्र।")
                 if s['benefits']:
-                    reply_lines.append(f"💰 **लाभ**: {s['benefits'][:180]}...")
+                    reply_lines.append(f"💰 **लाभ**: {s['benefits'][:120]}...")
                 if s['documents']:
-                    reply_lines.append(f"📄 **आवश्यक दस्तावेज**: {s['documents'][:150]}")
-                if s['application']:
-                    reply_lines.append(f"📝 **आवेदन कैसे करें**: {s['application'][:150]}")
+                    reply_lines.append(f"📄 **दस्तावेज**: {s['documents'][:90]}")
                 if s['official_link'] != "N/A":
-                    reply_lines.append(f"🔗 **आधिकारिक myScheme लिंक**: {s['official_link']}")
+                    reply_lines.append(f"🔗 **लिंक**: {s['official_link']}")
                 reply_lines.append("🟢 **पात्रता मेल**: उच्च (High)\n")
 
-            reply_lines.append("📍 **अगले चरण (Next Steps)**:\n1. आधार कार्ड तैयार रखें।\n2. आय प्रमाण पत्र प्राप्त करें (यदि आवश्यक हो)।\n3. निकटतम सीएससी (CSC) केंद्र पर जाएं या ऑनलाइन आवेदन करें।\n4. दस्तावेज अपलोड करें।\n5. आवेदन की स्थिति को ट्रैक करें।\n")
+            reply_lines.append("📍 **अगले चरण**:\n1. आधार कार्ड एवं आय प्रमाण पत्र तैयार रखें।\n2. निकटतम CSC केंद्र या आधिकारिक पोर्टल पर आवेदन करें।\n")
             reply_lines.append(mandatory_end)
 
         elif lang == "hinglish":
             reply_lines = [
                 "Namaste! Aapke AI Government Case Worker ke roop me, yahan aapki profile se match karne wali top government schemes hain:\n"
             ]
-            for s in formatted_schemes[:3]:
+            for s in formatted_schemes[:2]:
                 reply_lines.append(f"⭐ **{s['scheme_name']}** ({s['category']})")
-                reply_lines.append(f"📌 **Yeh scheme aapke liye kyu hai**: Aapke profile ke mutabiq {s['category']} welfare ke tehat eligible hai.")
+                reply_lines.append(f"📌 **Why Match**: Eligible under {s['category']} welfare.")
                 if s['benefits']:
-                    reply_lines.append(f"💰 **Benefits**: {s['benefits'][:180]}...")
+                    reply_lines.append(f"💰 **Benefits**: {s['benefits'][:120]}...")
                 if s['documents']:
-                    reply_lines.append(f"📄 **Required Documents**: {s['documents'][:150]}")
-                if s['application']:
-                    reply_lines.append(f"📝 **How to Apply**: {s['application'][:150]}")
+                    reply_lines.append(f"📄 **Documents**: {s['documents'][:90]}")
                 if s['official_link'] != "N/A":
-                    reply_lines.append(f"🔗 **Official myScheme Link**: {s['official_link']}")
+                    reply_lines.append(f"🔗 **Link**: {s['official_link']}")
                 reply_lines.append("🟢 **Eligibility Match**: High\n")
 
-            reply_lines.append("📍 **Next Steps**:\n1. Aadhaar Card ready rakhein.\n2. Income Certificate banwayein (agar zaroori ho).\n3. Paas ke CSC center ya official portal par apply karein.\n4. Documents upload karein.\n5. Application status track karein.\n")
+            reply_lines.append("📍 **Next Steps**:\n1. Keep Aadhaar Card and Income Proof ready.\n2. Apply online or visit nearest CSC center.\n")
             reply_lines.append(mandatory_end)
 
         else:
             reply_lines = [
                 "Namaste! As your AI Government Case Worker, here are the top recommended public welfare schemes matching your profile:\n"
             ]
-            for s in formatted_schemes[:3]:
+            for s in formatted_schemes[:2]:
                 reply_lines.append(f"⭐ **{s['scheme_name']}** ({s['category']})")
-                reply_lines.append(f"📌 **Why this scheme matches YOU**: Tailored for your profile under {s['category']} welfare.")
+                reply_lines.append(f"📌 **Why Match**: Tailored for your profile under {s['category']} welfare.")
                 if s['benefits']:
-                    reply_lines.append(f"💰 **Benefits**: {s['benefits'][:180]}...")
+                    reply_lines.append(f"💰 **Benefits**: {s['benefits'][:120]}...")
                 if s['documents']:
-                    reply_lines.append(f"📄 **Required Documents**: {s['documents'][:150]}")
-                if s['application']:
-                    reply_lines.append(f"📝 **How to Apply**: {s['application'][:150]}")
+                    reply_lines.append(f"📄 **Documents**: {s['documents'][:90]}")
                 if s['official_link'] != "N/A":
-                    reply_lines.append(f"🔗 **Official myScheme Link**: {s['official_link']}")
+                    reply_lines.append(f"🔗 **Link**: {s['official_link']}")
                 reply_lines.append("🟢 **Eligibility Match**: High\n")
 
-            reply_lines.append("📍 **Next Steps**:\n1. Keep Aadhaar Card ready.\n2. Obtain Income Certificate (if required).\n3. Visit nearest CSC or apply online.\n4. Upload required documents.\n5. Track application status.\n")
+            reply_lines.append("📍 **Next Steps**:\n1. Keep Aadhaar Card and Income Proof ready.\n2. Apply online or visit nearest CSC center.\n")
             reply_lines.append(mandatory_end)
 
         return {

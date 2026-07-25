@@ -120,6 +120,9 @@ class TwilioWhatsAppService:
                     body=chunk
                 )
                 logger.info(f"[Twilio Service] Chunk {idx+1}/{len(chunks)} dispatched to {recipient}. SID: {message.sid}")
+                if len(chunks) > 1 and idx < len(chunks) - 1:
+                    import time
+                    time.sleep(0.4)
             except Exception as err:
                 logger.error(f"[Twilio Service Error] Failed to send chunk {idx+1} to {recipient}: {err}")
                 success = False
