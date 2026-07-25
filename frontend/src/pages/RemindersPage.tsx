@@ -9,15 +9,18 @@ import {
   Loader2, 
   RefreshCw, 
   X, 
-  Check 
+  Check,
+  Inbox
 } from 'lucide-react';
 import { getReminders, createReminder, updateReminderStatus, Reminder, getSchemes, Scheme } from '../services/api';
+import { Toast, ToastMessage } from '../components/Toast';
 
 export const RemindersPage: React.FC = () => {
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [schemes, setSchemes] = useState<Scheme[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [toast, setToast] = useState<ToastMessage | null>(null);
 
   // Form State
   const [title, setTitle] = useState('');
@@ -26,19 +29,19 @@ export const RemindersPage: React.FC = () => {
   const [selectedSchemeId, setSelectedSchemeId] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
 
-  const fetchRemindersData = async () => {
+  const fetchRemindersData = async (showToastOnRefresh = false) => {
     setLoading(true);
     try {
       const data = await getReminders();
       if (data && data.length > 0) {
         setReminders(data);
       } else {
-        // Fallback default sample reminders if API returns empty
+        // Realistic Demo Data for Hackathon Presentation
         setReminders([
           {
             id: 1,
             citizen_id: 1,
-            title: 'Annual Pension Life Certificate Verification',
+            title: 'Annual Pension Life Certificate Verification (Jeevan Pramaan)',
             category: 'Senior Citizens',
             reminder_date: '2026-11-30',
             status: 'pending',
@@ -54,15 +57,29 @@ export const RemindersPage: React.FC = () => {
           {
             id: 3,
             citizen_id: 1,
-            title: 'Renew Ayushman Bharat Card for Household',
+            title: 'Renew Ayushman Bharat Golden Card for Family',
             category: 'Health',
             reminder_date: '2026-07-30',
             status: 'completed',
           },
         ]);
       }
+      if (showToastOnRefresh) {
+        setToast({
+          id: Date.now().toString(),
+          type: 'info',
+          title: 'Reminders Refreshed',
+          message: 'Latest reminders synced with backend database.',
+        });
+      }
     } catch (err) {
       console.error('Error fetching reminders:', err);
+      setToast({
+        id: Date.now().toString(),
+        type: 'error',
+        title: 'Sync Error',
+        message: 'Could not connect to backend server. Displaying local data.',
+      });
     } finally {
       setLoading(false);
     }
@@ -70,19 +87,24 @@ export const RemindersPage: React.FC = () => {
 
   useEffect(() => {
     fetchRemindersData();
-    // Pre-fetch schemes for dropdown selection
-    getSchemes().then(setSchemes);
+    getSchemes().then(setSchemes).catch(() => {});
   }, []);
 
   const handleToggleStatus = async (reminder: Reminder) => {
     const nextStatus = reminder.status === 'completed' ? 'pending' : 'completed';
+    
     // Optimistic UI update
     setReminders((prev) =>
       prev.map((item) => (item.id === reminder.id ? { ...item, status: nextStatus } : item))
     );
 
-    // Call API
     await updateReminderStatus(reminder.id, nextStatus);
+    setToast({
+      id: Date.now().toString(),
+      type: 'success',
+      title: nextStatus === 'completed' ? 'Reminder Completed! 🎉' : 'Reminder Marked Active',
+      message: `Status updated for "${reminder.title}".`,
+    });
   };
 
   const handleCreateReminder = async (e: React.FormEvent) => {
@@ -103,7 +125,6 @@ export const RemindersPage: React.FC = () => {
     if (created) {
       setReminders((prev) => [created, ...prev]);
     } else {
-      // Local fallback insert
       const localItem: Reminder = {
         id: Date.now(),
         ...newReminderData,
@@ -116,10 +137,20 @@ export const RemindersPage: React.FC = () => {
     setTitle('');
     setReminderDate('');
     setSelectedSchemeId('');
+
+    setToast({
+      id: Date.now().toString(),
+      type: 'success',
+      title: 'Reminder Created! 🔔',
+      message: `New reminder set for "${newReminderData.title}" on ${reminderDate}.`,
+    });
   };
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
+      {/* Toast Notification Container */}
+      <Toast toast={toast} onClose={() => setToast(null)} />
+
       {/* Top Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
         <div className="flex items-center space-x-3">
@@ -134,8 +165,8 @@ export const RemindersPage: React.FC = () => {
 
         <div className="flex items-center space-x-2">
           <button
-            onClick={fetchRemindersData}
-            className="p-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
+            onClick={() => fetchRemindersData(true)}
+            className="p-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors focus:ring-2 focus:ring-amber-500 focus:outline-none"
             title="Refresh Reminders"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -143,7 +174,7 @@ export const RemindersPage: React.FC = () => {
 
           <button
             onClick={() => setIsModalOpen(true)}
-            className="inline-flex items-center space-x-2 px-4 py-2.5 bg-gov-saffron-600 hover:bg-gov-saffron-700 text-white rounded-xl font-semibold text-xs sm:text-sm shadow transition-colors focus-ring"
+            className="inline-flex items-center space-x-2 px-4 py-2.5 bg-gov-saffron-600 hover:bg-gov-saffron-700 text-white rounded-xl font-semibold text-xs sm:text-sm shadow transition-colors focus:ring-2 focus:ring-amber-500 focus:outline-none"
           >
             <Plus className="w-4 h-4" />
             <span>Set Reminder</span>
@@ -153,15 +184,24 @@ export const RemindersPage: React.FC = () => {
 
       {/* Reminders List Grid */}
       {loading ? (
-        <div className="bg-white p-12 rounded-2xl border border-slate-200 text-center space-y-3">
+        <div className="bg-white p-12 rounded-2xl border border-slate-200 text-center space-y-3 shadow-xs">
           <Loader2 className="w-8 h-8 text-gov-saffron-600 animate-spin mx-auto" />
-          <p className="text-xs text-slate-500">Loading citizen reminders from backend...</p>
+          <p className="text-xs text-slate-500">Syncing public reminders with database...</p>
         </div>
       ) : reminders.length === 0 ? (
-        <div className="bg-white p-10 rounded-2xl border border-slate-200 text-center space-y-2">
-          <Bell className="w-10 h-10 text-slate-300 mx-auto" />
-          <h3 className="text-base font-bold text-slate-800">No Reminders Found</h3>
-          <p className="text-xs text-slate-500">Click "Set Reminder" to create your first public service reminder.</p>
+        <div className="bg-white p-12 rounded-2xl border border-slate-200 text-center space-y-3 shadow-xs">
+          <Inbox className="w-12 h-12 text-slate-300 mx-auto" />
+          <h3 className="text-base font-bold text-slate-800">No Active Reminders</h3>
+          <p className="text-xs text-slate-500 max-w-sm mx-auto">
+            Click "Set Reminder" to schedule notifications for public service deadlines, scholarships, or pensions.
+          </p>
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="inline-flex items-center space-x-2 px-4 py-2 bg-gov-saffron-600 hover:bg-gov-saffron-700 text-white rounded-xl font-semibold text-xs transition-colors focus:ring-2 focus:ring-amber-500 focus:outline-none"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Create First Reminder</span>
+          </button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -171,19 +211,19 @@ export const RemindersPage: React.FC = () => {
               <div
                 key={item.id}
                 className={`gov-card p-5 flex flex-col justify-between space-y-4 border transition-all ${
-                  isDone ? 'bg-slate-50/70 border-slate-200 opacity-90' : 'bg-white border-slate-200/90'
+                  isDone ? 'bg-slate-50/70 border-slate-200 opacity-90' : 'bg-white border-slate-200/90 hover:border-gov-saffron-400 shadow-xs'
                 }`}
               >
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="inline-flex items-center space-x-1 text-[11px] font-semibold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded border border-slate-200">
+                    <span className="inline-flex items-center space-x-1 text-[11px] font-semibold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
                       <Tag className="w-3 h-3 text-gov-saffron-500" />
                       <span>{item.category || 'General'}</span>
                     </span>
 
                     <button
                       onClick={() => handleToggleStatus(item)}
-                      className={`inline-flex items-center space-x-1 text-[10px] px-2 py-0.5 rounded font-semibold border transition-colors ${
+                      className={`inline-flex items-center space-x-1 text-[10px] px-2 py-0.5 rounded-full font-semibold border transition-colors focus:ring-2 focus:ring-amber-500 focus:outline-none ${
                         isDone
                           ? 'text-emerald-700 bg-emerald-50 border-emerald-200 hover:bg-emerald-100'
                           : 'text-amber-700 bg-amber-50 border-amber-200 hover:bg-amber-100'
@@ -215,14 +255,14 @@ export const RemindersPage: React.FC = () => {
                 </div>
 
                 <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-                  <div className="flex items-center space-x-1.5">
+                  <div className="flex items-center space-x-1.5 font-medium">
                     <Calendar className="w-3.5 h-3.5 text-slate-400" />
                     <span>Due: {item.reminder_date}</span>
                   </div>
 
                   <button
                     onClick={() => handleToggleStatus(item)}
-                    className="text-[11px] text-gov-saffron-600 hover:underline font-semibold flex items-center space-x-1"
+                    className="text-[11px] text-gov-saffron-600 hover:text-gov-saffron-800 font-semibold flex items-center space-x-1 focus:ring-2 focus:ring-amber-500 focus:outline-none rounded px-1"
                   >
                     <Check className="w-3 h-3" />
                     <span>{isDone ? 'Mark Active' : 'Mark Done'}</span>
@@ -241,11 +281,11 @@ export const RemindersPage: React.FC = () => {
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
                 <Bell className="w-4 h-4 text-gov-saffron-600" />
-                <span>Create New Reminder</span>
+                <span>Create New Citizen Reminder</span>
               </h2>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors focus:ring-2 focus:ring-amber-500 focus:outline-none"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -262,7 +302,7 @@ export const RemindersPage: React.FC = () => {
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="e.g. Renew Pension Verification"
-                  className="w-full px-3.5 py-2 text-xs sm:text-sm bg-gov-ash border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gov-saffron-500"
+                  className="w-full px-3.5 py-2.5 text-xs sm:text-sm bg-gov-ash border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gov-saffron-500"
                 />
               </div>
 
@@ -317,14 +357,14 @@ export const RemindersPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors focus:ring-2 focus:ring-amber-500 focus:outline-none"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting || !title.trim() || !reminderDate}
-                  className="px-5 py-2 text-xs font-semibold bg-gov-saffron-600 hover:bg-gov-saffron-700 disabled:opacity-50 text-white rounded-xl shadow transition-colors"
+                  className="px-5 py-2 text-xs font-semibold bg-gov-saffron-600 hover:bg-gov-saffron-700 disabled:opacity-50 text-white rounded-xl shadow transition-colors focus:ring-2 focus:ring-amber-500 focus:outline-none"
                 >
                   {submitting ? 'Saving...' : 'Save Reminder'}
                 </button>

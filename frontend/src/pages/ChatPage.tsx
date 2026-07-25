@@ -7,9 +7,15 @@ import {
   Landmark, 
   RefreshCw, 
   BellPlus, 
-  Check 
+  Check, 
+  Calendar, 
+  FileText, 
+  ShieldCheck, 
+  AlertCircle,
+  HelpCircle
 } from 'lucide-react';
 import { sendAssistantChat, MatchedScheme, createReminder } from '../services/api';
+import { Toast, ToastMessage } from '../components/Toast';
 
 interface ChatMessage {
   id: string;
@@ -18,28 +24,32 @@ interface ChatMessage {
   time: string;
   matchedSchemes?: MatchedScheme[];
   missingFields?: string[];
+  isError?: boolean;
 }
 
 export const ChatPage: React.FC = () => {
   const [inputMessage, setInputMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [reminderCreatedIds, setReminderCreatedIds] = useState<number[]>([]);
+  const [toast, setToast] = useState<ToastMessage | null>(null);
+  
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: '1',
       sender: 'assistant',
-      text: 'Namaste! I am your AI Case Worker. Tell me about your age, state, occupation, or what assistance you are seeking (Scholarships, Farming, Pensions, Women Welfare, or Health Insurance).',
+      text: 'Namaste! I am JanSathi AI, your public assistance case worker.\n\nTell me about your age, occupation, gender, state, district, or income, and what assistance you are seeking (Scholarships, Agriculture, Women Welfare, Senior Citizens, or Health Insurance).',
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     },
   ]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const sampleQueries = [
-    'I am a 65 year old farmer needing pension and crop assistance',
-    'I am a female student in Class 9 seeking scholarship guidance',
-    'Tell me about Ayushman Bharat health cover for my family',
-    'What schemes are available for Lakhpati Didi & women SHGs?',
+    'I am a 65 year old farmer from Punjab seeking pension and crop support',
+    'Class 10 female student looking for scholarship guidance',
+    'Tell me about Ayushman Bharat health insurance for low-income families',
+    'What welfare schemes exist for female entrepreneurs and Lakhpati Didi?',
   ];
 
   const scrollToBottom = () => {
@@ -51,13 +61,13 @@ export const ChatPage: React.FC = () => {
   }, [messages, isTyping]);
 
   const handleSendMessage = async (messageText: string) => {
-    if (!messageText.trim()) return;
+    if (!messageText.trim() || isTyping) return;
 
     const userTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const userMsg: ChatMessage = {
       id: Date.now().toString(),
       sender: 'user',
-      text: messageText,
+      text: messageText.trim(),
       time: userTime,
     };
 
@@ -65,46 +75,72 @@ export const ChatPage: React.FC = () => {
     setInputMessage('');
     setIsTyping(true);
 
-    // Call Backend AI Case Worker endpoint
-    const res = await sendAssistantChat(messageText);
+    try {
+      const res = await sendAssistantChat(messageText);
+      const botTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-    const botTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    setIsTyping(false);
-
-    if (res) {
-      const botMsg: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        sender: 'assistant',
-        text: res.reply,
-        time: botTime,
-        matchedSchemes: res.matched_schemes,
-        missingFields: res.missing_fields,
-      };
-      setMessages((prev) => [...prev, botMsg]);
-    } else {
-      // Fallback response if offline
-      const fallbackMsg: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        sender: 'assistant',
-        text: 'I have logged your request. (Note: Connecting to local backend API. Make sure FastAPI server is running).',
-        time: botTime,
-      };
-      setMessages((prev) => [...prev, fallbackMsg]);
+      if (res) {
+        const botMsg: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          sender: 'assistant',
+          text: res.reply,
+          time: botTime,
+          matchedSchemes: res.matched_schemes,
+          missingFields: res.missing_fields,
+        };
+        setMessages((prev) => [...prev, botMsg]);
+      } else {
+        const fallbackMsg: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          sender: 'assistant',
+          text: '⚠️ Unable to connect to backend AI server. Please verify FastAPI backend service is running on http://localhost:8000.',
+          time: botTime,
+          isError: true,
+        };
+        setMessages((prev) => [...prev, fallbackMsg]);
+        setToast({
+          id: Date.now().toString(),
+          type: 'error',
+          title: 'Network Error',
+          message: 'Failed to communicate with JanSathi AI service.',
+        });
+      }
+    } catch (err) {
+      console.error('Chat error:', err);
+    } finally {
+      setIsTyping(false);
+      setTimeout(() => inputRef.current?.focus(), 100);
     }
   };
 
   const handleCreateReminderForScheme = async (scheme: MatchedScheme) => {
-    const reminderData = {
-      citizen_id: 1,
-      scheme_id: scheme.id,
-      title: `Application Deadline: ${scheme.title}`,
-      category: scheme.category,
-      reminder_date: scheme.deadline !== 'Open Year Round' ? scheme.deadline : '2026-11-30',
-      status: 'pending',
-    };
+    try {
+      const reminderData = {
+        citizen_id: 1,
+        scheme_id: scheme.id,
+        title: `Deadline: ${scheme.title}`,
+        category: scheme.category,
+        reminder_date: scheme.deadline !== 'Open Year Round' ? scheme.deadline : '2026-11-30',
+        status: 'pending',
+      };
 
-    await createReminder(reminderData);
-    setReminderCreatedIds((prev) => [...prev, scheme.id]);
+      await createReminder(reminderData);
+      setReminderCreatedIds((prev) => [...prev, scheme.id]);
+
+      setToast({
+        id: Date.now().toString(),
+        type: 'success',
+        title: 'Reminder Created Successfully! 🔔',
+        message: `Reminder set for "${scheme.title}" due on ${reminderData.reminder_date}. Check your Reminders page!`,
+      });
+    } catch (err) {
+      setToast({
+        id: Date.now().toString(),
+        type: 'error',
+        title: 'Reminder Failed',
+        message: 'Could not create reminder. Please try again.',
+      });
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -117,14 +153,23 @@ export const ChatPage: React.FC = () => {
       {
         id: Date.now().toString(),
         sender: 'assistant',
-        text: 'Chat conversation reset. Ask me any question regarding public services or government schemes!',
+        text: 'Namaste! JanSathi AI chat conversation has been reset. How may I assist you today?',
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       },
     ]);
+    setToast({
+      id: Date.now().toString(),
+      type: 'info',
+      title: 'Chat Reset',
+      message: 'Conversation history cleared.',
+    });
   };
 
   return (
     <div className="max-w-4xl mx-auto space-y-4">
+      {/* Toast Notification Container */}
+      <Toast toast={toast} onClose={() => setToast(null)} />
+
       {/* Header Banner */}
       <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
         <div className="flex items-center space-x-3">
@@ -132,29 +177,31 @@ export const ChatPage: React.FC = () => {
             <Landmark className="w-6 h-6" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+            <h1 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
               JanSathi AI Case Worker
-              <span className="text-[10px] bg-gov-saffron-100 text-gov-saffron-700 px-2 py-0.5 rounded font-semibold border border-gov-saffron-200">
-                LIVE API
+              <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-semibold border border-emerald-200">
+                ACTIVE
               </span>
             </h1>
-            <p className="text-xs text-slate-500">Public Service Matching • Modular AI Assistant</p>
+            <p className="text-xs text-slate-500">Public Service Matching • Sarvam AI & Database Grounded</p>
           </div>
         </div>
 
         <button
           onClick={handleResetChat}
-          className="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+          className="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors focus:ring-2 focus:ring-amber-500 focus:outline-none"
           title="Reset Conversation"
+          aria-label="Reset Conversation"
         >
           <RefreshCw className="w-4 h-4" />
         </button>
       </div>
 
-      {/* Main Interactive Chat Area */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col h-[600px] overflow-hidden">
-        {/* Messages Feed */}
-        <div className="flex-1 p-4 sm:p-6 overflow-y-auto space-y-5 bg-[#f8fafc]">
+      {/* Main Interactive Chat Window */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col h-[620px] overflow-hidden">
+        
+        {/* Messages Scroll Area */}
+        <div className="flex-1 p-4 sm:p-6 overflow-y-auto space-y-6 bg-[#f8fafc]">
           {messages.map((msg) => (
             <div
               key={msg.id}
@@ -162,29 +209,41 @@ export const ChatPage: React.FC = () => {
                 msg.sender === 'user' ? 'flex-row-reverse space-x-reverse' : ''
               }`}
             >
-              {/* Avatar */}
+              {/* Sender Avatar */}
               <div
                 className={`w-9 h-9 rounded-full flex items-center justify-center text-white shrink-0 shadow-sm ${
                   msg.sender === 'user'
                     ? 'bg-gov-navy-800'
+                    : msg.isError
+                    ? 'bg-rose-600'
                     : 'bg-gradient-to-br from-gov-saffron-500 to-gov-saffron-700'
                 }`}
               >
-                {msg.sender === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
+                {msg.sender === 'user' ? (
+                  <User className="w-4 h-4" />
+                ) : msg.isError ? (
+                  <AlertCircle className="w-4 h-4" />
+                ) : (
+                  <Bot className="w-4 h-4" />
+                )}
               </div>
 
-              {/* Chat Bubble & Scheme Cards */}
-              <div className="max-w-[90%] sm:max-w-[80%] space-y-3">
+              {/* Message Content Container */}
+              <div className="max-w-[90%] sm:max-w-[82%] space-y-3">
                 <div
                   className={`rounded-2xl p-4 text-xs sm:text-sm shadow-xs ${
                     msg.sender === 'user'
                       ? 'bg-gov-navy-800 text-white rounded-tr-none'
+                      : msg.isError
+                      ? 'bg-rose-50 border border-rose-200 text-rose-800 rounded-tl-none'
                       : 'bg-white border border-slate-200 text-slate-800 rounded-tl-none leading-relaxed'
                   }`}
                 >
                   <div className="whitespace-pre-line font-sans">{msg.text}</div>
+                  
+                  {/* Timestamp */}
                   <span
-                    className={`text-[10px] block mt-2 text-right ${
+                    className={`text-[10px] block mt-2 text-right font-medium ${
                       msg.sender === 'user' ? 'text-slate-300' : 'text-slate-400'
                     }`}
                   >
@@ -192,12 +251,23 @@ export const ChatPage: React.FC = () => {
                   </span>
                 </div>
 
-                {/* Inline Matched Scheme Cards */}
+                {/* Missing Fields Prompt Callout */}
+                {msg.missingFields && msg.missingFields.length > 0 && (
+                  <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl flex items-start space-x-2 text-xs text-amber-900">
+                    <HelpCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold">Helpful Tip:</span> Providing your{' '}
+                      <span className="font-semibold">{msg.missingFields.join(', ')}</span> will help us locate exact eligible schemes for you!
+                    </div>
+                  </div>
+                )}
+
+                {/* Enhanced AI Scheme Cards */}
                 {msg.matchedSchemes && msg.matchedSchemes.length > 0 && (
-                  <div className="space-y-3 pt-1">
+                  <div className="space-y-3 pt-2">
                     <div className="flex items-center space-x-1.5 text-xs font-bold text-gov-navy-900">
-                      <Sparkles className="w-4 h-4 text-gov-saffron-500" />
-                      <span>Recommended Schemes ({msg.matchedSchemes.length})</span>
+                      <Sparkles className="w-4 h-4 text-gov-saffron-500 animate-pulse" />
+                      <span>Eligible Public Schemes ({msg.matchedSchemes.length})</span>
                     </div>
 
                     <div className="grid grid-cols-1 gap-3">
@@ -206,43 +276,55 @@ export const ChatPage: React.FC = () => {
                         return (
                           <div
                             key={scheme.id}
-                            className="bg-white border border-slate-200/90 hover:border-gov-saffron-400 rounded-xl p-4 shadow-sm transition-all space-y-3"
+                            className="bg-white border border-slate-200 hover:border-gov-saffron-400 rounded-xl p-4 shadow-sm transition-all space-y-3"
                           >
+                            {/* Card Top Row */}
                             <div className="flex items-start justify-between gap-2">
                               <div>
-                                <span className="inline-block text-[10px] font-bold text-gov-saffron-700 bg-gov-saffron-50 px-2 py-0.5 rounded border border-gov-saffron-200 mb-1">
+                                <span className="inline-block text-[10px] font-bold text-gov-saffron-700 bg-gov-saffron-50 px-2.5 py-0.5 rounded-full border border-gov-saffron-200 mb-1">
                                   {scheme.category}
                                 </span>
                                 <h4 className="text-sm font-bold text-slate-900">{scheme.title}</h4>
                               </div>
-                              <span className="text-[10px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded shrink-0 font-medium">
-                                Deadline: {scheme.deadline}
+                              <span className="inline-flex items-center space-x-1 text-[10px] text-slate-600 bg-slate-100 px-2 py-1 rounded-md shrink-0 font-medium border border-slate-200">
+                                <Calendar className="w-3 h-3 text-slate-500" />
+                                <span>{scheme.deadline}</span>
                               </span>
                             </div>
 
+                            {/* Description */}
                             <p className="text-xs text-slate-600 leading-relaxed">{scheme.description}</p>
 
-                            <div className="bg-gov-ash/70 p-2.5 rounded-lg space-y-1.5 text-xs text-slate-700 border border-slate-100">
-                              <div>
-                                <span className="font-semibold text-gov-navy-800">Match Reason:</span>{' '}
-                                <span className="text-slate-600">{scheme.match_reason}</span>
+                            {/* Match Reason & Required Documents */}
+                            <div className="bg-slate-50 p-3 rounded-lg space-y-2 text-xs border border-slate-100">
+                              <div className="flex items-start space-x-2 text-slate-700">
+                                <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                                <div>
+                                  <span className="font-semibold text-slate-900">Why You Are Eligible:</span>{' '}
+                                  <span className="text-slate-600">{scheme.match_reason || scheme.eligibility}</span>
+                                </div>
                               </div>
-                              <div>
-                                <span className="font-semibold text-gov-navy-800">Required Documents:</span>{' '}
-                                <span className="text-slate-600">{scheme.required_documents}</span>
+
+                              <div className="flex items-start space-x-2 text-slate-700 pt-1 border-t border-slate-200/60">
+                                <FileText className="w-4 h-4 text-gov-navy-600 shrink-0 mt-0.5" />
+                                <div>
+                                  <span className="font-semibold text-slate-900">Required Documents:</span>{' '}
+                                  <span className="text-slate-600">{scheme.required_documents}</span>
+                                </div>
                               </div>
                             </div>
 
+                            {/* Card Footer Actions */}
                             <div className="flex items-center justify-between pt-1 border-t border-slate-100">
-                              <span className="text-[10px] text-slate-400 font-medium">JanSathi Scheme #0{scheme.id}</span>
+                              <span className="text-[10px] text-slate-400 font-medium">Scheme ID #{scheme.id}</span>
 
                               <button
                                 onClick={() => handleCreateReminderForScheme(scheme)}
                                 disabled={isReminderSet}
-                                className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                                className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all focus:ring-2 focus:ring-amber-500 focus:outline-none ${
                                   isReminderSet
-                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                    : 'bg-gov-saffron-600 hover:bg-gov-saffron-700 text-white shadow focus-ring'
+                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-default'
+                                    : 'bg-gov-saffron-600 hover:bg-gov-saffron-700 text-white shadow'
                                 }`}
                               >
                                 {isReminderSet ? (
@@ -270,13 +352,17 @@ export const ChatPage: React.FC = () => {
 
           {/* Typing Indicator */}
           {isTyping && (
-            <div className="flex items-center space-x-3">
-              <div className="w-9 h-9 rounded-full bg-gov-saffron-600 text-white flex items-center justify-center shrink-0">
+            <div className="flex items-center space-x-3 animate-in fade-in duration-200">
+              <div className="w-9 h-9 rounded-full bg-gov-saffron-600 text-white flex items-center justify-center shrink-0 shadow-sm">
                 <Bot className="w-4 h-4 animate-bounce" />
               </div>
-              <div className="bg-white border border-slate-200 px-4 py-3 rounded-2xl rounded-tl-none text-xs text-slate-500 flex items-center space-x-2 shadow-xs">
-                <span className="w-2 h-2 rounded-full bg-gov-saffron-500 animate-ping" />
-                <span>AI Case Worker is searching scheme database...</span>
+              <div className="bg-white border border-slate-200 px-4 py-3 rounded-2xl rounded-tl-none text-xs text-slate-600 flex items-center space-x-2 shadow-xs">
+                <div className="flex items-center space-x-1">
+                  <span className="w-2 h-2 rounded-full bg-gov-saffron-500 animate-ping" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-gov-saffron-600" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-gov-saffron-700" />
+                </div>
+                <span className="font-medium text-slate-500">JanSathi AI case worker is evaluating government scheme database...</span>
               </div>
             </div>
           )}
@@ -285,17 +371,18 @@ export const ChatPage: React.FC = () => {
         </div>
 
         {/* Quick Suggestion Pills */}
-        <div className="px-4 py-2 bg-white border-t border-slate-100">
+        <div className="px-4 py-2.5 bg-white border-t border-slate-100">
           <div className="flex items-center space-x-1.5 text-[11px] font-medium text-slate-500 mb-2">
             <Sparkles className="w-3.5 h-3.5 text-gov-saffron-500" />
-            <span>Try AI Case Worker prompts:</span>
+            <span>Hackathon Quick Demo Prompts:</span>
           </div>
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
             {sampleQueries.map((query, idx) => (
               <button
                 key={idx}
+                disabled={isTyping}
                 onClick={() => handleSendMessage(query)}
-                className="whitespace-nowrap text-[11px] px-3 py-1.5 rounded-full bg-gov-ash hover:bg-gov-saffron-50 text-slate-700 hover:text-gov-saffron-700 border border-slate-200 transition-colors"
+                className="whitespace-nowrap text-[11px] px-3 py-1.5 rounded-full bg-gov-ash hover:bg-gov-saffron-50 text-slate-700 hover:text-gov-saffron-700 border border-slate-200 transition-colors focus:ring-2 focus:ring-amber-500 focus:outline-none disabled:opacity-50"
               >
                 {query}
               </button>
@@ -303,21 +390,23 @@ export const ChatPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Input Bar */}
+        {/* Bottom Input Form */}
         <form onSubmit={handleSubmit} className="p-3 bg-white border-t border-slate-200 flex items-center space-x-2">
           <input
+            ref={inputRef}
             type="text"
+            disabled={isTyping}
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
-            placeholder="Type details (e.g. 'I am a 65 year old farmer from UP looking for pension')..."
-            className="flex-1 px-4 py-3 text-xs sm:text-sm bg-gov-ash border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gov-saffron-500 text-slate-800 placeholder-slate-400"
+            placeholder="Type your details (e.g., 'I am a 60 year old farmer from MP seeking pension')..."
+            className="flex-1 px-4 py-3 text-xs sm:text-sm bg-gov-ash border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gov-saffron-500 text-slate-800 placeholder-slate-400 disabled:opacity-60"
           />
           <button
             type="submit"
-            disabled={!inputMessage.trim()}
-            className="px-4 py-3 bg-gov-saffron-600 hover:bg-gov-saffron-700 disabled:opacity-50 text-white rounded-xl font-semibold shadow flex items-center space-x-1 transition-colors focus-ring shrink-0 text-xs sm:text-sm"
+            disabled={!inputMessage.trim() || isTyping}
+            className="px-4 py-3 bg-gov-saffron-600 hover:bg-gov-saffron-700 disabled:opacity-50 text-white rounded-xl font-semibold shadow flex items-center space-x-1 transition-colors focus:ring-2 focus:ring-amber-500 focus:outline-none shrink-0 text-xs sm:text-sm"
           >
-            <span>Send</span>
+            <span>{isTyping ? 'Processing...' : 'Send'}</span>
             <Send className="w-4 h-4 ml-1" />
           </button>
         </form>
