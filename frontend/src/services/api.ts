@@ -43,6 +43,9 @@ export interface MatchedScheme {
   required_documents: string;
   deadline: string;
   match_reason: string;
+  benefits?: string;
+  application?: string;
+  official_link?: string;
 }
 
 export interface AssistantChatResponse {
@@ -129,3 +132,24 @@ export const sendAssistantChat = async (message: string): Promise<AssistantChatR
     return null;
   }
 };
+
+export const syncSchemes = async (): Promise<any> => {
+  try {
+    const response = await api.post('/api/schemes/sync');
+    return response.data;
+  } catch (error) {
+    console.error('Scheme sync failed:', error);
+    return null;
+  }
+};
+
+export const getSyncStatus = async (): Promise<any> => {
+  try {
+    const response = await api.get('/api/schemes/sync-status');
+    return response.data;
+  } catch (error) {
+    console.error('Failed to fetch sync status:', error);
+    return null;
+  }
+};
+

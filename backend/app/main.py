@@ -64,10 +64,19 @@ def create_app() -> FastAPI:
 
     @app.on_event("startup")
     async def startup_log():
+        import asyncio
         from app.services.twilio_whatsapp_service import twilio_whatsapp_service
         from app.services.sarvam_service import sarvam_client
+        from app.services.gemini_service import gemini_rag_service
+        from app.services.scheduler import start_daily_scheme_scheduler
+
+        # Start daily scheme ingestion scheduler loop in background
+        asyncio.create_task(start_daily_scheme_scheduler())
+
         logger.info(f"[JanSathi AI] ✅ Server started: {settings.PROJECT_NAME} v{settings.VERSION}")
-        logger.info(f"[JanSathi AI] 🤖 Sarvam AI: {'✅ Configured' if sarvam_client.is_configured() else '⚠️  Not configured (using fallback rule engine)'}")
+        logger.info(f"[JanSathi AI] 🤖 Gemini RAG Engine: {'✅ Configured' if gemini_rag_service.is_configured() else '⚠️  Not configured (using grounded fallback reasoning)'}")
+        logger.info(f"[JanSathi AI] 🤖 Sarvam AI (General Chat): {'✅ Configured' if sarvam_client.is_configured() else '⚠️  Not configured'}")
+        logger.info(f"[JanSathi AI] 🔄 Daily Scheme Auto-Sync Scheduler: ✅ Active (24h Loop)")
         logger.info(f"[JanSathi AI] 📱 Twilio WhatsApp Sandbox: {'✅ Configured' if twilio_whatsapp_service.is_configured() else '⚠️  Not configured (web app unaffected)'}")
         if twilio_whatsapp_service.is_configured():
             logger.info(f"[JanSathi AI] 📞 Twilio WhatsApp Number: {twilio_whatsapp_service.from_number}")

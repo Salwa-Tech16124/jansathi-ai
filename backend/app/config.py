@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     SARVAM_BASE_URL: str = "https://api.sarvam.ai"
     SARVAM_MODEL: str = "sarvam-2b"
 
+    # Gemini AI Configuration
+    GEMINI_API_KEY: Optional[str] = None
+    GEMINI_MODEL: str = "gemini-2.0-flash"
+
     # Twilio WhatsApp Sandbox Configuration
     TWILIO_ACCOUNT_SID: Optional[str] = None
     TWILIO_AUTH_TOKEN: Optional[str] = None

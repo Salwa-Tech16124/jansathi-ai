@@ -12,6 +12,7 @@ router = APIRouter(prefix="/assistant", tags=["AI Case Worker"])
 class ChatMessageInput(BaseModel):
     message: str
     citizen_id: Optional[int] = None
+    session_id: Optional[str] = "default"
 
 
 class MatchedSchemeSchema(BaseModel):
@@ -23,6 +24,9 @@ class MatchedSchemeSchema(BaseModel):
     required_documents: str
     deadline: str
     match_reason: str
+    benefits: Optional[str] = ""
+    application: Optional[str] = ""
+    official_link: Optional[str] = ""
 
 
 class AssistantChatResponse(BaseModel):
@@ -35,11 +39,12 @@ class AssistantChatResponse(BaseModel):
 @router.post("/chat", response_model=AssistantChatResponse)
 def assistant_chat(payload: ChatMessageInput, db: Session = Depends(get_db)):
     """
-    AI Case Worker endpoint analyzing citizen queries, extracting structured fields,
-    matching database schemes, and offering follow-ups or reminder actions.
+    AI Case Worker RAG endpoint analyzing citizen queries, retrieving SQLite schemes,
+    grounding response with Gemini LLM, maintaining conversation memory, and outputting myScheme links.
     """
     if not payload.message or not payload.message.strip():
         raise HTTPException(status_code=400, detail="Message string cannot be empty")
 
-    result = ai_case_worker.analyze_and_respond(payload.message, db)
+    session_id = payload.session_id or f"citizen_{payload.citizen_id or 'default'}"
+    result = ai_case_worker.analyze_and_respond(payload.message, db, session_id=session_id)
     return result

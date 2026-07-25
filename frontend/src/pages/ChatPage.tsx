@@ -13,7 +13,8 @@ import {
   FileText, 
   ShieldCheck, 
   AlertCircle,
-  HelpCircle
+  HelpCircle,
+  ExternalLink
 } from 'lucide-react';
 import { sendAssistantChat, MatchedScheme, createReminder } from '../services/api';
 import { Toast, ToastMessage } from '../components/Toast';
@@ -34,6 +35,10 @@ export const ChatPage: React.FC = () => {
   const [isTyping, setIsTyping] = useState(false);
   const [reminderCreatedIds, setReminderCreatedIds] = useState<number[]>([]);
   const [toast, setToast] = useState<ToastMessage | null>(null);
+
+  const cleanText = (rawText: string): string => {
+    return rawText.replace(/\*{1,2}/g, '');
+  };
   
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
@@ -47,23 +52,20 @@ export const ChatPage: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // 15 Realistic Demo Prompts covering all 10 citizen categories
+  // Multilingual Demo Prompts (Hindi, Hinglish, English) covering citizen categories
   const sampleQueries = [
+    '🎓 मैं कक्षा 12 का छात्र हूँ, मुझे मेरिट छात्रवृत्ति चाहिए (Hindi)',
+    '👨‍🌾 Mujhe PM Kisan aur kheti ke liye 3 acre zameen par madad chahiye (Hinglish)',
+    '👩 main tailoring business kholna chahti hun Lakhpati Didi yojana me (Hinglish)',
+    '👴 मेरी उम्र 70 वर्ष है, मुझे वृद्ध पेंशन योजना की जानकारी चाहिए (Hindi)',
     '🎓 I am a Class 12 student passed with 85% seeking merit scholarship',
     '👨‍🌾 I cultivate wheat on 3 acres of land in Punjab and need crop support',
-    '👴 I am 70 years old seeking senior citizen old age pension',
-    '👩 I want to start a tailoring business under Lakhpati Didi scheme',
-    '🏥 My family needs medical treatment and hospital coverage',
+    '🏥 Mere parivar ko Ayushman Bharat hospital treatment cover chahiye (Hinglish)',
     '♿ I have a 60% disability certificate and seek financial aid',
-    '🏭 I want to open a grocery shop under PM MUDRA loan',
+    '🏭 Mujhe grocery shop ke liye PM MUDRA loan chahiye (Hinglish)',
     '💼 I am an unemployed youth seeking skill training under PMKVY',
-    '🏠 I need financial help to construct a house under PMAY',
-    '👶 Looking for orphan child protection and nutrition support',
-    '🎓 Female student in Class 9 seeking NMMSS scholarship',
-    '👨‍🌾 Crop damage due to unseasonal rains seeking insurance claim',
-    '👩 Pregnant mother looking for PMMVY maternity benefits',
-    '♿ Need assistance for wheelchair and hearing aid for senior citizen',
-    '💼 Artisan carpenter seeking PM-Vishwakarma toolkit credit',
+    '🏠 Mujhe PMAY ke tehat pucca ghar banane ke liye sahayata chahiye (Hinglish)',
+    '👶 orphan child protection aur nutrition support ki jankari (Hinglish)',
   ];
 
   const scrollToBottom = () => {
@@ -105,7 +107,7 @@ export const ChatPage: React.FC = () => {
         const botMsg: ChatMessage = {
           id: (Date.now() + 1).toString(),
           sender: 'assistant',
-          text: res.reply,
+          text: cleanText(res.reply),
           time: botTime,
           matchedSchemes: res.matched_schemes,
           missingFields: res.missing_fields,
@@ -261,7 +263,7 @@ export const ChatPage: React.FC = () => {
                       : 'bg-white border border-slate-200 text-slate-800 rounded-tl-none leading-relaxed'
                   }`}
                 >
-                  <div className="whitespace-pre-line font-sans">{msg.text}</div>
+                  <div className="whitespace-pre-line font-sans">{cleanText(msg.text)}</div>
                   
                   {/* Timestamp */}
                   <span
@@ -323,7 +325,7 @@ export const ChatPage: React.FC = () => {
                                 <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                                 <div>
                                   <span className="font-semibold text-slate-900">Why You Are Eligible:</span>{' '}
-                                  <span className="text-slate-600">{scheme.match_reason || scheme.eligibility}</span>
+                                  <span className="text-slate-600">{cleanText(scheme.match_reason || scheme.eligibility)}</span>
                                 </div>
                               </div>
 
@@ -337,30 +339,44 @@ export const ChatPage: React.FC = () => {
                             </div>
 
                             {/* Card Footer Actions */}
-                            <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+                            <div className="flex items-center justify-between pt-1 border-t border-slate-100 flex-wrap gap-2">
                               <span className="text-[10px] text-slate-400 font-medium">Scheme ID #{scheme.id}</span>
 
-                              <button
-                                onClick={() => handleCreateReminderForScheme(scheme)}
-                                disabled={isReminderSet}
-                                className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all focus:ring-2 focus:ring-amber-500 focus:outline-none ${
-                                  isReminderSet
-                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-default'
-                                    : 'bg-gov-saffron-600 hover:bg-gov-saffron-700 text-white shadow'
-                                }`}
-                              >
-                                {isReminderSet ? (
-                                  <>
-                                    <Check className="w-3.5 h-3.5" />
-                                    <span>Reminder Set</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <BellPlus className="w-3.5 h-3.5" />
-                                    <span>Set Reminder</span>
-                                  </>
+                              <div className="flex items-center space-x-2">
+                                {scheme.official_link && scheme.official_link.startsWith('http') && (
+                                  <a
+                                    href={scheme.official_link}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 transition-colors"
+                                  >
+                                    <ExternalLink className="w-3.5 h-3.5 text-gov-navy-600" />
+                                    <span>Official myScheme Link</span>
+                                  </a>
                                 )}
-                              </button>
+
+                                <button
+                                  onClick={() => handleCreateReminderForScheme(scheme)}
+                                  disabled={isReminderSet}
+                                  className={`inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all focus:ring-2 focus:ring-amber-500 focus:outline-none ${
+                                    isReminderSet
+                                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-default'
+                                      : 'bg-gov-saffron-600 hover:bg-gov-saffron-700 text-white shadow'
+                                  }`}
+                                >
+                                  {isReminderSet ? (
+                                    <>
+                                      <Check className="w-3.5 h-3.5" />
+                                      <span>Reminder Set</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <BellPlus className="w-3.5 h-3.5" />
+                                      <span>Set Reminder</span>
+                                    </>
+                                  )}
+                                </button>
+                              </div>
                             </div>
                           </div>
                         );

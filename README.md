@@ -1,93 +1,100 @@
 # JanSathi AI - Public Assistance & Citizen Services Portal
 
-An accessible, citizen-first public service portal built to provide guidance, scheme recommendations, reminders, and support for civic services powered by Sarvam AI and WhatsApp Cloud API integration.
-
-## Tech Stack
-
-- **Frontend**: React 18, Vite, TypeScript, Tailwind CSS, React Router DOM, Lucide React
-- **Backend**: Python FastAPI, Uvicorn, Pydantic, SQLAlchemy
-- **AI & Integrations**: Sarvam AI API, WhatsApp Cloud API
-- **Database**: SQLite (`jansathi.db`)
+An accessible, citizen-first public service portal and **Retrieval-Augmented Generation (RAG)** platform built to provide guidance, official government scheme recommendations, reminders, and support for civic services across India.
 
 ---
 
-## Project Structure
+## 🌟 Key System Features
+
+- **3,400+ Government Schemes Dataset**: Imported, auto-migrated, and indexed in SQLite (`jansathi.db`) with `scheme_name`, `slug`, `details`, `benefits`, `eligibility`, `application`, `documents`, `level`, `schemeCategory`, and `tags`.
+- **Intelligent Retrieval & Query Normalization**:
+  - Domain synonym expansion matching equivalents:
+    - **Education**: `12`, `12th`, `Class XII`, `Intermediate`, `Higher Secondary`, `10th`, `SSLC`, `Scholarship`.
+    - **Agriculture**: `Farmer`, `Kisan`, `Agriculture`, `Crop`, `Farming`, `Land`, `Cultivator`.
+    - **Women**: `Women`, `Woman`, `Female`, `Mahila`, `Girl`, `Mother`, `Lakhpati`, `SHG`.
+    - **Business**: `Business`, `MSME`, `Startup`, `Shop`, `Entrepreneur`, `Loan`.
+    - **Employment**: `Job`, `Employment`, `Work`, `Skill`, `Training`, `Unemployed`, `Artisan`.
+    - **Health**: `Hospital`, `Medical`, `Treatment`, `Health`, `Ayushman`, `Doctor`.
+    - **Housing**: `House`, `Home`, `PMAY`, `Shelter`, `Awas`.
+  - Multi-field TF-IDF style scoring returning the **Top 5** most relevant schemes.
+- **Gemini 1.5 Flash RAG Grounding**:
+  - Answers **ONLY** using retrieved SQLite scheme context to prevent hallucinations.
+- **Official myScheme Integration**:
+  - Dynamically generates verified links: `https://www.myscheme.gov.in/schemes/{slug}`.
+- **Backend Conversation Memory**:
+  - Remembers user context across turns (`State`, `Age`, `Gender`, `Education`, `Occupation`, `Annual Income`).
+- **AI Query Intent Routing**:
+  - Government scheme queries -> **SQLite Search + Gemini RAG**.
+  - Greetings & casual conversation -> **Sarvam AI Service**.
+- **Automated Daily Scheme Ingestion Scheduler**:
+  - Non-blocking 24-hour background scheduler (`scheduler.py`) that automatically ingests newly released and upcoming 2026 government schemes into SQLite.
+  - Interactive manual sync button & live status card in the **Admin Portal**.
+
+---
+
+## 🛠️ Tech Stack
+
+- **Frontend**: React 18, Vite, TypeScript, Tailwind CSS, React Router DOM, Lucide React
+- **Backend**: Python FastAPI, Uvicorn, Pydantic, SQLAlchemy, `google-genai` SDK
+- **AI Engines**: Google Gemini 1.5 Flash (RAG Grounding) & Sarvam AI (Casual Chat)
+- **Database**: SQLite (`jansathi.db`) with full B-Tree indexes on `scheme_name`, `schemeCategory`, and `tags`
+
+---
+
+## 📁 Project Structure
 
 ```
 jansathi-ai/
 ├── frontend/
 │   ├── src/
-│   │   ├── components/     # Layout, Navbar, Footer
+│   │   ├── components/     # Layout, Navbar, Footer, Toast
 │   │   ├── pages/          # Landing, Chat, Reminders, Admin, NotFound
-│   │   ├── services/       # API client (Axios)
-│   │   ├── App.tsx         # React Router setup
-│   │   ├── main.tsx        # Entry point
-│   │   └── index.css       # Tailwind CSS & Indian Public Service theme
+│   │   ├── services/       # API client (Axios, scheme sync, assistant chat)
+│   │   ├── App.tsx         # React Router navigation
+│   │   ├── main.tsx        # Application entry point
+│   │   └── index.css       # Indian Public Service visual theme
 │   ├── index.html
 │   ├── package.json
-│   ├── tailwind.config.js
 │   └── vite.config.ts
 ├── backend/
+│   ├── data/
+│   │   └── updated_data.csv # 3,400+ Government Schemes dataset
 │   ├── app/
-│   │   ├── main.py         # FastAPI app creation, CORS middleware & startup diagnostics
-│   │   ├── config.py       # Pydantic settings configuration
-│   │   ├── database.py     # SQLite connection & session generator
-│   │   ├── seed.py         # Seed database with government schemes & sample citizen
+│   │   ├── main.py         # FastAPI app creation & background scheduler runner
+│   │   ├── config.py       # Pydantic settings & env variable configuration
+│   │   ├── database.py     # SQLite connection & session manager
+│   │   ├── seed.py         # CSV dataset validator, de-duplicator & indexer
 │   │   ├── routers/        # Health, Citizens, Schemes, Reminders, Assistant, Webhook
-│   │   ├── services/       # AI Case Worker, Sarvam AI, WhatsApp Cloud API service
-│   │   ├── models/         # SQLAlchemy Database models (Citizen, Scheme, Reminder)
-│   │   ├── schemas/        # Pydantic validation schemas
-│   │   └── utils/          # Helper utilities
-│   ├── main.py             # Uvicorn launcher
+│   │   ├── services/       # Search Service, Gemini RAG, Sarvam AI, Collector, Scheduler
+│   │   ├── models/         # SQLAlchemy models (Citizen, Scheme, Reminder)
+│   │   └── schemas/        # Pydantic validation schemas
+│   ├── main.py             # Uvicorn entry point
 │   └── requirements.txt
 └── README.md
 ```
 
 ---
 
-## Getting Started
+## 🚀 Terminal Startup Instructions
 
-### 1. Backend Setup
-```bash
-cd backend
-python -m venv venv
-# Activate virtualenv:
-# On Windows: venv\Scripts\activate
-# On Linux/macOS: source venv/bin/activate
-pip install -r requirements.txt
-
-# Configure environment variables in backend/.env:
-# SARVAM_API_KEY=sk_...
-# WHATSAPP_ACCESS_TOKEN=...
-# WHATSAPP_PHONE_NUMBER_ID=...
-# WHATSAPP_VERIFY_TOKEN=...
-
-python main.py
+### 1. Terminal 1: Start FastAPI Backend Server
+```powershell
+cd s:\jansathi-ai\backend
+.\venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
-The FastAPI application will start on `http://localhost:8000`.
-- API Health Check: `http://localhost:8000/health`
-- Interactive API Docs: `http://localhost:8000/docs`
-- WhatsApp Webhook Endpoint: `http://localhost:8000/webhook`
 
-### 2. Frontend Setup
-```bash
-cd frontend
-npm install
+### 2. Terminal 2: Start React Frontend Web App
+```powershell
+cd s:\jansathi-ai\frontend
 npm run dev
 ```
-The frontend application will start on `http://localhost:5173`.
 
 ---
 
-## Key Features
+## 🌐 Application Endpoints
 
-- **Indian Public-Service Visual Theme**: Saffron, Navy, and Emerald Green palette, high contrast, accessible typography.
-- **AI Case Worker**:
-  - Structured citizen info extraction (income, age, occupation, gender, state, district, needs).
-  - Missing field detection with targeted follow-up question.
-  - SQLite grounded government scheme matching (Scholarships, Agriculture/Farmers, Women Welfare, Senior Citizens, Health).
-- **Sarvam AI Integration**: Dedicated client with fallback rule engine if API credentials are not set.
-- **WhatsApp Cloud API Integration**:
-  - `GET /webhook` verification handler.
-  - `POST /webhook` for parsing incoming messages, marking as read, querying AI case worker, and replying to citizens via WhatsApp.
-  - Graceful isolation: Backend runs smoothly even when WhatsApp credentials are omitted.
+- **Frontend Web Portal**: [http://localhost:5173](http://localhost:5173)
+- **AI Case Worker Chat**: [http://localhost:5173/chat](http://localhost:5173/chat)
+- **Admin Portal & Scheme Sync**: [http://localhost:5173/admin](http://localhost:5173/admin)
+- **FastAPI Health Status**: [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health)
+- **Interactive OpenAPI Documentation**: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
