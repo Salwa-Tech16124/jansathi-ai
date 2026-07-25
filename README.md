@@ -33,6 +33,26 @@
 
 ---
 
+## 📌 Hackathon Submission & Notion Documentation
+
+![Genesis Loop Hackathon Banner](images/hackathon_banner.jpg)
+
+### 💡 Problem Statement & Real-World Motivation
+> *"My mother (non-technical, limited English) was eligible for 3 government welfare schemes but didn't know they existed. When I found them on a government website and tried to explain, she gave up after step 1 due to confusing UI, scattered portals, and complex eligibility technical jargon. But she uses WhatsApp every single day effortlessly."*
+
+![Problem and Solution](images/problem_and_solution.jpg)
+
+### 🔬 Research, AI Tooling & Technical References
+- **Speech-to-Text**: Sarvam AI (`Saaras v3`)
+- **LLM Chat Engine**: Sarvam 30B/105B & Google Gemini 2.0 Flash
+- **Text-to-Speech**: Sarvam Bulbul (`v3`)
+- **Language Support**: 22+ Indian Languages
+- **Benchmarked Competitors**: MyGov Corona Helpdesk, EasyGov
+
+![Research and References](images/research_and_references.jpg)
+
+---
+
 ## 💎 Key Capabilities & Unique Features
 
 ### 🤖 1. Empathetic AI Government Case Worker Persona
