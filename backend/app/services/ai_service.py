@@ -40,10 +40,22 @@ class AICaseWorkerService:
 
         # Update Conversation Memory with any extracted profile parameters
         memory = self._update_conversation_memory(session_id, clean_msg)
-        logger.info(f"[AI Case Worker Memory] Session '{session_id}' ({lang}) state: {memory}")
 
-        # Step 1: Check if crucial profile information is missing for detected citizen category
-        category = memory.get("category") or self._detect_category_from_text(clean_msg)
+        # Step 1: Detect category from current message FIRST to support topic switching
+        new_category = self._detect_category_from_text(clean_msg)
+        if new_category:
+            if memory.get("category") and memory.get("category") != new_category:
+                logger.info(f"[AI Case Worker Memory] User switched category from '{memory.get('category')}' to '{new_category}'. Resetting category fields.")
+                memory.pop("crop", None)
+                memory.pop("land", None)
+                memory.pop("occupation", None)
+            memory["category"] = new_category
+            category = new_category
+        else:
+            category = memory.get("category")
+
+        logger.info(f"[AI Case Worker Memory] Session '{session_id}' ({lang}) Category: {category}, State: {memory}")
+
         missing_question = self._check_missing_profile_questions(clean_msg, memory, category, lang)
 
         if missing_question:

@@ -8,7 +8,6 @@ from app.config import settings
 from app.database import get_db
 from app.services.twilio_whatsapp_service import twilio_whatsapp_service
 from app.services.ai_service import ai_case_worker
-
 from app.services.sarvam_service import sarvam_client
 
 logger = logging.getLogger("jansathi.twilio_webhook")
@@ -30,7 +29,7 @@ async def handle_twilio_webhook(
 ):
     """
     POST /webhook endpoint receiving incoming WhatsApp text & voice messages from Twilio Sandbox.
-    Automatically transcribes voice notes via Sarvam AI Speech-to-Text (Saaras v3).
+    Supports both text messages and voice notes via Sarvam AI Speech-to-Text.
     """
     media_url = MediaUrl0
     media_type = MediaContentType0
@@ -43,19 +42,25 @@ async def handle_twilio_webhook(
         MessageSid = MessageSid or form_data.get("MessageSid")
         media_url = media_url or form_data.get("MediaUrl0")
         media_type = media_type or form_data.get("MediaContentType0")
+        NumMedia = NumMedia or form_data.get("NumMedia")
     except Exception:
         pass
 
     sender_phone = From or ""
     message_text = (Body or "").strip()
 
-    # Voice Note Handling: If an audio file URL is received from WhatsApp
-    if media_url or (media_type and media_type.startswith("audio/")):
+    # Voice Note Handling: Only trigger STT if an audio file was actually attached
+    has_audio = bool(
+        (media_type and "audio" in media_type.lower()) or
+        (media_url and media_url.strip() and str(media_url) != "None")
+    )
+
+    if has_audio and media_url:
         logger.info(f"[Twilio Inbound Voice] Voice note received from {sender_phone}: {media_url}")
-        transcribed_text = sarvam_client.transcribe_audio_url(media_url) if media_url else None
-        if transcribed_text:
-            logger.info(f"[Twilio Inbound Voice] Transcribed: '{transcribed_text}'")
-            message_text = transcribed_text
+        transcribed = sarvam_client.transcribe_audio_url(media_url)
+        if transcribed:
+            logger.info(f"[Twilio Inbound Voice] Transcribed text: '{transcribed}'")
+            message_text = transcribed
         else:
             if not message_text:
                 message_text = "voice note inquiry for government scheme"
