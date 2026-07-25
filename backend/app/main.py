@@ -26,7 +26,7 @@ def create_app() -> FastAPI:
         version=settings.VERSION,
         description=(
             "JanSathi AI - Public Assistance & Citizen Services API\n\n"
-            "Integrates: SQLite database, Sarvam AI reasoning, and WhatsApp Cloud API."
+            "Integrates: SQLite database, Sarvam AI reasoning, and Twilio WhatsApp Sandbox."
         ),
         docs_url="/docs",
         redoc_url="/redoc"
@@ -48,17 +48,18 @@ def create_app() -> FastAPI:
     app.include_router(reminders.router, prefix=f"{settings.API_PREFIX}/api")
     app.include_router(assistant.router, prefix=f"{settings.API_PREFIX}/api")
 
-    # WhatsApp Webhook (mounted at /webhook for Meta webhook verification compatibility)
+    # Twilio WhatsApp Webhook (mounted at /webhook)
     app.include_router(webhook.router, prefix=settings.API_PREFIX)
 
     @app.on_event("startup")
     async def startup_log():
-        from app.services.whatsapp_service import whatsapp_service
+        from app.services.twilio_whatsapp_service import twilio_whatsapp_service
         from app.services.sarvam_service import sarvam_client
         logger.info(f"[JanSathi AI] ✅ Server started: {settings.PROJECT_NAME} v{settings.VERSION}")
         logger.info(f"[JanSathi AI] 🤖 Sarvam AI: {'✅ Configured' if sarvam_client.is_configured() else '⚠️  Not configured (using fallback rule engine)'}")
-        logger.info(f"[JanSathi AI] 📱 WhatsApp Cloud API: {'✅ Configured' if whatsapp_service.is_configured() else '⚠️  Not configured (web app unaffected)'}")
-        logger.info(f"[JanSathi AI] 🔑 WhatsApp Verify Token: {settings.WHATSAPP_VERIFY_TOKEN}")
+        logger.info(f"[JanSathi AI] 📱 Twilio WhatsApp Sandbox: {'✅ Configured' if twilio_whatsapp_service.is_configured() else '⚠️  Not configured (web app unaffected)'}")
+        if twilio_whatsapp_service.is_configured():
+            logger.info(f"[JanSathi AI] 📞 Twilio WhatsApp Number: {twilio_whatsapp_service.from_number}")
 
     return app
 

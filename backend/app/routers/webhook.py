@@ -1,69 +1,70 @@
 import logging
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
-from fastapi.responses import PlainTextResponse
+from fastapi import APIRouter, Depends, Form, Request, Response
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
-from app.config import settings
 from app.database import get_db
-from app.services.whatsapp_service import whatsapp_service
+from app.services.twilio_whatsapp_service import twilio_whatsapp_service
 from app.services.ai_service import ai_case_worker
 
-logger = logging.getLogger("jansathi.webhook")
+logger = logging.getLogger("jansathi.twilio_webhook")
 
-router = APIRouter(tags=["WhatsApp Webhook"])
-
-
-@router.get("/webhook")
-def verify_webhook(
-    hub_mode: str = Query(None, alias="hub.mode"),
-    hub_verify_token: str = Query(None, alias="hub.verify_token"),
-    hub_challenge: str = Query(None, alias="hub.challenge")
-):
-    """
-    GET /webhook endpoint required by Meta WhatsApp Cloud API for webhook verification.
-    """
-    expected_token = settings.WHATSAPP_VERIFY_TOKEN or "jansathi_verify_token_2026"
-
-    if hub_mode == "subscribe" and hub_verify_token == expected_token:
-        logger.info("[WhatsApp Webhook] Verification successful!")
-        return Response(content=hub_challenge, media_type="text/plain", status_code=200)
-
-    logger.warning(f"[WhatsApp Webhook] Verification failed. Received token: '{hub_verify_token}', expected: '{expected_token}'")
-    raise HTTPException(status_code=403, detail="Verification token mismatch")
+router = APIRouter(tags=["Twilio WhatsApp Webhook"])
 
 
 @router.post("/webhook")
-async def handle_webhook(request: Request, db: Session = Depends(get_db)):
+async def handle_twilio_webhook(
+    request: Request,
+    From: str = Form(None),
+    Body: str = Form(None),
+    MessageSid: str = Form(None),
+    db: Session = Depends(get_db)
+):
     """
-    POST /webhook endpoint receiving incoming WhatsApp message events from Meta.
+    POST /webhook endpoint receiving incoming WhatsApp messages from Twilio Sandbox.
+    
+    Twilio posts standard HTTP form data:
+    - From: e.g. 'whatsapp:+919876543210'
+    - Body: Citizen message text
+    - MessageSid: Twilio message identifier
     """
-    try:
-        payload = await request.json()
-    except Exception:
-        # Invalid JSON or empty body - return 200 OK so Meta does not retry endlessly
-        return {"status": "ignored"}
+    # If parameters were not injected by Form parser, parse request form data manually
+    if not From or not Body:
+        try:
+            form_data = await request.form()
+            From = From or form_data.get("From")
+            Body = Body or form_data.get("Body")
+            MessageSid = MessageSid or form_data.get("MessageSid")
+        except Exception:
+            pass
 
-    parsed_msg = whatsapp_service.extract_incoming_message(payload)
-    if not parsed_msg:
-        # Event is a status delivery receipt or non-text message
-        return {"status": "ok"}
+    sender_phone = From or ""
+    message_text = (Body or "").strip()
 
-    sender_phone = parsed_msg["from_number"]
-    message_text = parsed_msg["text"]
-    message_id = parsed_msg.get("message_id")
+    if not sender_phone or not message_text:
+        logger.warning("[Twilio Webhook] Received empty or invalid payload.")
+        # Return valid TwiML response to satisfy Twilio
+        twiml_content = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response></Response>"
+        return Response(content=twiml_content, media_type="application/xml", status_code=200)
 
-    logger.info(f"[WhatsApp Inbound] Message from {sender_phone}: '{message_text}'")
+    logger.info(f"[Twilio Inbound] Message from {sender_phone} (Sid: {MessageSid}): '{message_text}'")
 
-    # Mark message as read on WhatsApp
-    if message_id:
-        whatsapp_service.mark_message_as_read(message_id)
+    # Optional Twilio request validation
+    signature_header = request.headers.get("X-Twilio-Signature", "")
+    request_url = str(request.url)
+    if signature_header and twilio_whatsapp_service.is_configured():
+        # Validate signature if configured
+        post_data = dict(await request.form()) if hasattr(request, "form") else {}
+        is_valid = twilio_whatsapp_service.validate_twilio_request(request_url, post_data, signature_header)
+        if not is_valid:
+            logger.warning(f"[Twilio Webhook] Invalid signature header for URL: {request_url}")
 
-    # Process message using existing AI Case Worker Service
+    # Process incoming message using existing AI Case Worker
     try:
         ai_res = ai_case_worker.analyze_and_respond(message_text, db)
         reply_text = ai_res.get("reply", "")
 
-        # Append formatted matched schemes details if any schemes were matched
+        # Format matched schemes cleanly for WhatsApp output
         matched_schemes = ai_res.get("matched_schemes", [])
         if matched_schemes:
             reply_text += "\n\n📌 *Matched Government Schemes:*"
@@ -75,15 +76,28 @@ async def handle_webhook(request: Request, db: Session = Depends(get_db)):
                     f"• *Documents Needed:* {scheme['required_documents']}"
                 )
 
-        # Send response text back to citizen's WhatsApp number
-        whatsapp_service.send_text_message(sender_phone, reply_text)
+        # Dispatch reply via Twilio WhatsApp API
+        twilio_whatsapp_service.send_text_message(sender_phone, reply_text)
 
     except Exception as err:
-        logger.error(f"[WhatsApp Webhook] Error invoking AI Case Worker: {err}")
-        # Send friendly error response
-        whatsapp_service.send_text_message(
+        logger.error(f"[Twilio Webhook Error] Error processing message: {err}")
+        twilio_whatsapp_service.send_text_message(
             sender_phone,
             "Namaste! JanSathi AI system is currently processing your request. Please try again shortly."
         )
 
-    return {"status": "ok"}
+    # Return empty TwiML XML response to acknowledge receipt to Twilio
+    twiml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response></Response>"
+    return Response(content=twiml, media_type="application/xml", status_code=200)
+
+
+@router.get("/webhook")
+def twilio_webhook_status():
+    """
+    GET /webhook helper endpoint for health check.
+    """
+    return {
+        "status": "ok",
+        "service": "Twilio WhatsApp Sandbox Webhook",
+        "configured": twilio_whatsapp_service.is_configured()
+    }
