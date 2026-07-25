@@ -42,7 +42,7 @@ async def handle_twilio_webhook(
     if not sender_phone or not message_text:
         logger.warning("[Twilio Webhook] Received empty or invalid payload.")
         twiml_content = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response></Response>"
-        return Response(content=twiml_content, media_type="application/xml", status_code=200)
+        return Response(content=twiml_content, media_type="application/xml; charset=utf-8", status_code=200)
 
     logger.info(f"[Twilio Inbound] Message from {sender_phone} (Sid: {MessageSid}): '{message_text}'")
 
@@ -58,14 +58,14 @@ async def handle_twilio_webhook(
         # Return TwiML XML with <Message> body for instant Twilio reply delivery
         escaped_reply = escape(reply_text)
         twiml_content = f"<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response><Message>{escaped_reply}</Message></Response>"
-        return Response(content=twiml_content, media_type="application/xml", status_code=200)
+        return Response(content=twiml_content.encode("utf-8"), media_type="application/xml; charset=utf-8", status_code=200)
 
     except Exception as err:
         logger.error(f"[Twilio Webhook Error] Error processing message: {err}")
         err_msg = "Namaste! JanSathi AI system is currently processing your request. Please try again shortly."
         escaped_err = escape(err_msg)
         twiml_content = f"<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response><Message>{escaped_err}</Message></Response>"
-        return Response(content=twiml_content, media_type="application/xml", status_code=200)
+        return Response(content=twiml_content.encode("utf-8"), media_type="application/xml; charset=utf-8", status_code=200)
 
 
 @router.get("/webhook")
