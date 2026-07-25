@@ -13,6 +13,7 @@ router = APIRouter(tags=["Twilio WhatsApp Webhook"])
 
 
 @router.post("/webhook")
+@router.post("/webhook/incoming")
 async def handle_twilio_webhook(
     request: Request,
     From: str = Form(None),
@@ -92,6 +93,7 @@ async def handle_twilio_webhook(
 
 
 @router.get("/webhook")
+@router.get("/webhook/incoming")
 def twilio_webhook_status():
     """
     GET /webhook helper endpoint for health check.
