@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: Optional[str] = None
     GEMINI_MODEL: str = "gemini-2.0-flash"
 
+    # Public Website URL for WhatsApp links
+    PUBLIC_WEBSITE_URL: str = "https://ceroplastic-evaluative-emeline.ngrok-free.dev"
+
     # Twilio WhatsApp Sandbox Configuration
     TWILIO_ACCOUNT_SID: Optional[str] = None
     TWILIO_AUTH_TOKEN: Optional[str] = None

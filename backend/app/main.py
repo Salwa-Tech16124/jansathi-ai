@@ -1,6 +1,10 @@
+import os
 import logging
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+
 from app.config import settings
 from app.database import engine, Base, SessionLocal
 from app.routers import health, citizens, schemes, reminders, assistant, webhook
@@ -41,17 +45,6 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # Root API Welcome Endpoint
-    @app.get("/", tags=["Root"])
-    def root():
-        return {
-            "name": settings.PROJECT_NAME,
-            "version": settings.VERSION,
-            "status": "online",
-            "documentation": "/docs",
-            "health_check": "/health"
-        }
-
     # Core API Routers
     app.include_router(health.router, prefix=settings.API_PREFIX)
     app.include_router(citizens.router, prefix=f"{settings.API_PREFIX}/api")
@@ -61,6 +54,22 @@ def create_app() -> FastAPI:
 
     # Twilio WhatsApp Webhook (mounted at /webhook)
     app.include_router(webhook.router, prefix=settings.API_PREFIX)
+
+    # Mount built React Frontend from frontend/dist if available
+    dist_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist"))
+    if os.path.exists(dist_dir):
+        assets_dir = os.path.join(dist_dir, "assets")
+        if os.path.exists(assets_dir):
+            app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+
+        @app.get("/{full_path:path}", include_in_schema=False)
+        async def serve_react_app(full_path: str):
+            if full_path.startswith("api/") or full_path.startswith("webhook") or full_path in ["health", "docs", "redoc", "openapi.json"]:
+                return Response(status_code=404)
+            file_path = os.path.join(dist_dir, full_path)
+            if os.path.exists(file_path) and os.path.isfile(file_path):
+                return FileResponse(file_path)
+            return FileResponse(os.path.join(dist_dir, "index.html"))
 
     @app.on_event("startup")
     async def startup_log():
@@ -74,12 +83,11 @@ def create_app() -> FastAPI:
         asyncio.create_task(start_daily_scheme_scheduler())
 
         logger.info(f"[JanSathi AI] ✅ Server started: {settings.PROJECT_NAME} v{settings.VERSION}")
+        logger.info(f"[JanSathi AI] 🌐 Public Web App UI & API serving on ngrok URL: {settings.PUBLIC_WEBSITE_URL}")
         logger.info(f"[JanSathi AI] 🤖 Gemini RAG Engine: {'✅ Configured' if gemini_rag_service.is_configured() else '⚠️  Not configured (using grounded fallback reasoning)'}")
         logger.info(f"[JanSathi AI] 🤖 Sarvam AI (General Chat): {'✅ Configured' if sarvam_client.is_configured() else '⚠️  Not configured'}")
         logger.info(f"[JanSathi AI] 🔄 Daily Scheme Auto-Sync Scheduler: ✅ Active (24h Loop)")
         logger.info(f"[JanSathi AI] 📱 Twilio WhatsApp Sandbox: {'✅ Configured' if twilio_whatsapp_service.is_configured() else '⚠️  Not configured (web app unaffected)'}")
-        if twilio_whatsapp_service.is_configured():
-            logger.info(f"[JanSathi AI] 📞 Twilio WhatsApp Number: {twilio_whatsapp_service.from_number}")
 
     return app
 

@@ -51,6 +51,12 @@ async def handle_twilio_webhook(
         ai_res = ai_case_worker.analyze_and_respond(message_text, db, session_id=sender_phone)
         reply_text = ai_res.get("reply", "")
 
+        # Append Public Website Link so citizens can open the React Web UI on ngrok
+        web_url = settings.PUBLIC_WEBSITE_URL or "http://localhost:5173"
+        website_callout = f"\n\n🌐 For full interactive portal, reminders & web chat, visit:\n{web_url}"
+        if web_url not in reply_text:
+            reply_text += website_callout
+
         # Also dispatch via REST API if configured
         if twilio_whatsapp_service.is_configured():
             twilio_whatsapp_service.send_text_message(sender_phone, reply_text)
